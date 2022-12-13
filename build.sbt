@@ -8,5 +8,6 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.scalameta" %% "munit" % "0.7.29" % Test,
     libraryDependencies += "org.typelevel" %% "cats-core" % "2.9.0",
     libraryDependencies += "org.typelevel" %% "cats-effect" % "3.4.2",
-    libraryDependencies += "org.typelevel" %% "cats-collections-core" % "0.9.5"
+    libraryDependencies += "org.typelevel" %% "cats-collections-core" % "0.9.5",
+    libraryDependencies += "org.typelevel" %% "cats-parse" % "0.3.7"
   )
