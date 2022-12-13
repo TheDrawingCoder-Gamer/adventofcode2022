@@ -8,7 +8,7 @@ import cats.Applicative
 import cats.Foldable
 import cats.Eval
 import cats.Semigroup
-case class Grid[A](values: Seq[Seq[A]]){
+case class Grid[A] private (values: Vector[Vector[A]]){
   val width: Int = values.head.length 
   val height: Int = values.length
   assert(values.forall(_.lengthCompare(width) == 0))
@@ -29,15 +29,17 @@ case class Grid[A](values: Seq[Seq[A]]){
     val (x, y) = nToXY(n)
     get(x, y)
   }
+  def get(p: Vec2i): Option[A] = get(p.x, p.y)
   def apply(x: Int, y: Int): A = values(y)(x)
   def apply(n: Int) : A = {
     val (x, y) = nToXY(n)
     apply(x, y)
   }
-  def extractRow(y: Int): Seq[A] = values(y) 
-  def extractColumn(x: Int): Seq[A] = values.transpose.apply(x)
-  def rows: Seq[Seq[A]] = values 
-  def columns: Seq[Seq[A]] = values.transpose
+  def apply(p: Vec2i): A = apply(p.x, p.y)
+  def extractRow(y: Int): Seq[A] = values(y).toSeq
+  def extractColumn(x: Int): Seq[A] = values.transpose.apply(x).toSeq
+  def rows: Seq[Seq[A]] = values.toSeq.map(_.toSeq) 
+  def columns: Seq[Seq[A]] = values.transpose.toSeq.map(_.toSeq)
   private def nToXY(n: Int): (Int, Int) = {
     (n % width, Math.floor(n / width).toInt)
   }
@@ -47,10 +49,35 @@ case class Grid[A](values: Seq[Seq[A]]){
     val (x, y) = nToXY(n)
     updated(x, y)(v)
   }
+  def updated(p: Vec2i)(v: A): Grid[A] = updated(p.x, p.y)(v)
+  def expand(default: A)(n: Int): Grid[A] = {
+    Grid[A](values.map[Vector[A]](
+      _.prependedAll(Vector.fill[A](n)(default))
+       .appendedAll(Vector.fill[A](n)(default))
+     )
+      .appended(Vector.fill(width + n * 2)(default))
+      .prepended(Vector.fill(width + n * 2)(default))
+    )
+  }
+  def valuesAround(default: A)(x: Int, y: Int): Grid[A] = {
+    val foo = 
+      for {
+        y <- (y - 1) to (y + 1)
+        x <- (x - 1) to (x + 1)
+      } yield get(x, y).getOrElse(default)
+    println(foo)
+    Grid(foo, 3)
+  }
+  def flatten: Vector[A] = values.flatten
 }
 object Grid {
-  def apply[A](values: Seq[A], width: Int): Grid[A] = {
-    Grid[A](values.grouped(width).toSeq)
+  def apply[A](values: Iterable[A], width: Int): Grid[A] = {
+    assert(values.nonEmpty && values.size % width == 0)
+    Grid[A](values.grouped(width).toVector.map(_.toVector))
+  }
+
+  def apply[A](values: Iterable[Iterable[A]]): Grid[A] = {
+    Grid[A](values.toVector.map(_.toVector))
   }
 }
 given gridShow[A](using s: Show[A]): Show[Grid[A]] with {
