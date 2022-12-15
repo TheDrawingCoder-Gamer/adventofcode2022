@@ -13,5 +13,8 @@ case class Vec2i(x: Int, y: Int) extends Ordered[Vec2i] {
     else 
       this.y - that.y
   }
+  final def taxiDistance(that: Vec2i): Int = {
+    Math.abs(this.x - that.x) + Math.abs(this.y - that.y)
+  }
 }
 
