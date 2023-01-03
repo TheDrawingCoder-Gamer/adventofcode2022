@@ -3,7 +3,7 @@ import cats.implicits.*
 import cats.syntax.all.*
 import cats.data.{State, Reader}
 import scala.io.Source
-
+/*
 trait Dice {
   def next: Dice
   def value: Int
@@ -12,6 +12,7 @@ trait Dice {
 case class StaticDice(value: Int) extends Dice {
   def next = this 
 }
+lazy val diracDiceFullTurn: State[DaState, 
 lazy val runDiracDice: Reader[DaState, (BigInt, BigInt)] = Reader { state =>
   val (x, xw) = fullTurn.run(state.copy(dice = StaticDice(0))).value
   val (y, yw) = fullTurn.run(state.copy(dice = StaticDice(1))).value 
@@ -21,13 +22,7 @@ lazy val runDiracDice: Reader[DaState, (BigInt, BigInt)] = Reader { state =>
   val (z1, z2) = zw.map(it => if (it == 1) (BigInt(1), BigInt(0)) else (BigInt(0), BigInt(1))).getOrElse(runDiracDice(z))
   (x1 + y1 + z1, x2 + y2 + z2)
 }
-case class Player(score: Int, space: Int) {
-  def move(n: Int): Player = {
-    val daSpace = (space + n) % 10
-    val good = if (daSpace == 0) 10 else daSpace
-    this.copy(score = score + good, space = good)
-  }
-}
+
 case class DaState(dice: Dice, nrolls: Int, p1: Player, p2: Player)
 val nextInt: State[Dice, Int] = State { it => 
   val newOne = it.next 
@@ -66,11 +61,76 @@ val fullTurn = for {
       p2Turn.map(if (_) Some(2) else None)
 
 } yield r2
-val input = Source.fromResource("2021/day21tst.txt").mkString 
-val List(player1, player2) = input.linesIterator.map { it => 
-  Player(0, it.dropWhile(_ != ':').drop(1).trim.toInt )
-}.toList
 
 
 
 runDiracDice(DaState(StaticDice(0), 0, player1, player2))
+*/ 
+case class SinfulState(dice: Int, nrolls: Int, p1: Player, p2: Player)
+case class Player(score: Int, space: Int) {
+  def move(n: Int): Player = {
+    val daSpace = (space + n) % 10
+    val good = if (daSpace == 0) 10 else daSpace
+    this.copy(score = score + good, space = good)
+  }
+}
+def split[A](action: Reader[SinfulState, List[(SinfulState, A)]]): Reader[SinfulState, List[(SinfulState, A)]] = {
+
+  for {
+    x <- Reader.local[List[(SinfulState, A)], SinfulState](_.copy(dice = 1))(action)
+    y <- Reader.local[List[(SinfulState, A)], SinfulState](_.copy(dice = 2))(action)
+    z <- Reader.local[List[(SinfulState, A)], SinfulState](_.copy(dice = 3))(action)
+  } yield x ++ y ++ z
+} 
+val dieCombos: List[(Int, Long)] = {
+  val possibleRolls = 
+    (for {
+      x <- 1 to 3
+      y <- 1 to 3 
+      z <- 1 to 3
+    } yield x + y + z).toList 
+  possibleRolls.groupMapReduce(identity)(_ => 1L)(_ + _).toList
+}
+val dieMap = dieCombos.toMap
+def playerTurn(accessor: SinfulState => Player, setter: (SinfulState, Player) => SinfulState): Reader[SinfulState, List[(SinfulState, Option[BigInt])]] = Reader { state =>
+  
+
+  dieCombos.map { (it, v) =>
+    val newPlayer = accessor(state).move(it)
+    (setter(state, newPlayer), Option.when(newPlayer.score >= 21)(BigInt(v)))
+
+  }
+
+}
+
+val player1Turn = playerTurn(_.p1, (s, p) => s.copy(p1 = p))
+val player2Turn = playerTurn(_.p2, (s, p) => s.copy(p2 = p))
+
+val fullTurn: Reader[SinfulState, (List[SinfulState], (BigInt, BigInt))] = Reader { state => 
+  val p1 = player1Turn(state)
+  val p2 = p1.filter((s, p) => p.isEmpty).map((s, _) => s).flatMap(player2Turn.apply)
+  (p2.filter((_, p) => p.isEmpty).map((s, _) => s), (
+    p1.filter((_, p) => p.isDefined).map((_, p) => p.get).sum, 
+    p2.filter((_, p) => p.isDefined).map((_, p) => p.get).sum
+    ))
+}
+
+val input = Source.fromResource("2021/day21tst.txt").mkString 
+val List(player1, player2) = input.linesIterator.map { it => 
+  Player(0, it.dropWhile(_ != ':').drop(1).trim.toInt )
+}.toList
+def runDiracDice(state: (BigInt, BigInt) = {
+  var p1Wins = BigInt(0)
+  var p2Wins = BigInt(0)
+  var states = List[SinfulState](SinfulState(0, 0, player1, player2))
+  while (states.nonEmpty) {
+    val res = states.map(fullTurn.apply)
+    res.map { case (s, (p1, p2)) => 
+      p1Wins += p1 
+      p2Wins += p2 
+    }
+    states = res.flatMap { case (s, _) => s }
+  }
+  (p1Wins, p2Wins)
+}
+runDiracDice

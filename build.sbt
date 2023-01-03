@@ -2,6 +2,7 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 
 ThisBuild / scalaVersion := "3.2.1"
 
+ThisBuild / scalacOptions += "-JXmx4G"
 lazy val root = (project in file("."))
   .settings(
     name := "aoc2022",
@@ -9,5 +10,6 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.typelevel" %% "cats-core" % "2.9.0",
     libraryDependencies += "org.typelevel" %% "cats-effect" % "3.4.2",
     libraryDependencies += "org.typelevel" %% "cats-collections-core" % "0.9.5",
-    libraryDependencies += "org.typelevel" %% "cats-parse" % "0.3.7"
+    libraryDependencies += "org.typelevel" %% "cats-parse" % "0.3.7",
+    libraryDependencies += "org.atnos" %% "eff" % "6.0.2"
   )
